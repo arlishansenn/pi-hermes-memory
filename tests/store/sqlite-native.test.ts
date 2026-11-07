@@ -58,7 +58,7 @@ describe("sqlite-native loader", () => {
     db.close();
   });
 
-  it("rebuilds once on ABI mismatch then succeeds", () => {
+  it("rebuilds once on ABI mismatch only with explicit opt-in", () => {
     let calls = 0;
     const ctor = class FakeDb {
       constructor(_path: string) {}
@@ -83,6 +83,7 @@ describe("sqlite-native loader", () => {
     let rebuilt = false;
     const Database = loadBetterSqlite3({
       requireImpl: req,
+      allowRebuild: true,
       rebuild: (packageRoot) => {
         rebuilt = true;
         assert.equal(packageRoot, "/tmp/fake-npm/node_modules/better-sqlite3");
@@ -109,14 +110,15 @@ describe("sqlite-native loader", () => {
       () =>
         loadBetterSqlite3({
           requireImpl: req,
+          allowRebuild: true,
           rebuild: () => ({ ok: false, detail: "npm missing" }),
         }),
       (error: unknown) => {
         assert.ok(error instanceof BetterSqlite3LoadError);
         const message = error.message;
         assert.match(message, /pi-hermes-memory could not load the native better-sqlite3 module/);
-        assert.match(message, /npm rebuild better-sqlite3/);
-        assert.match(message, /Homebrew/);
+        assert.match(message, /newly versioned fleet release/);
+        assert.match(message, /Do not rebuild or delete/);
         assert.match(message, /npm missing/);
         assert.equal(error.packageRoot, "/tmp/fake-npm/node_modules/better-sqlite3");
         return true;
@@ -133,8 +135,8 @@ describe("sqlite-native loader", () => {
     });
     assert.match(message, /NODE_MODULE_VERSION/);
     assert.match(message, /\/Users\/me\/\.pi\/agent\/npm\/node_modules\/better-sqlite3/);
-    assert.match(message, /npm rebuild better-sqlite3/);
-    assert.match(message, /Homebrew/);
+    assert.match(message, /newly versioned fleet release/);
+    assert.match(message, /Do not rebuild or delete/);
   });
 
   it("does not rebuild for non-ABI load failures", () => {

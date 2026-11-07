@@ -1,10 +1,6 @@
 /**
- * Shared better-sqlite3 loader with ABI mismatch recovery.
- *
- * Pi installs extension deps under ~/.pi/agent/npm. When the host Node that
- * runs Pi (e.g. Homebrew) differs from the Node that compiled better-sqlite3,
- * require() throws NODE_MODULE_VERSION errors. Detect that, attempt one
- * npm rebuild against the current runtime, and surface a clear recovery path.
+ * Shared better-sqlite3 loader with explicit rebuild opt-in.
+ * Fleet releases never rebuild their immutable dependencies during runtime.
  */
 
 import { createRequire } from "node:module";
@@ -169,16 +165,13 @@ export function formatBetterSqlite3AbiError(options: {
     `Module: ${location}`,
     `Original error: ${original}`,
     rebuildLine,
-    "Fix: rebuild the extension install against the same Node that runs Pi, then restart Pi:",
-    options.packageRoot
-      ? `  cd "${options.packageRoot}" && npm rebuild better-sqlite3`
-      : "  cd ~/.pi/agent/npm && npm rebuild better-sqlite3",
-    "If you installed Pi with Homebrew, either rebuild as above after brew Node upgrades, or install Pi with npm so the extension and host share one Node toolchain.",
+    "Install a newly versioned fleet release for the current Node ABI, then restart Pi.",
+    "Reissue the runtime manifest version and lock, pack a new release ID, and explicitly install it. Do not rebuild or delete an existing immutable release.",
   ].join("\n");
 }
 
 /**
- * Load better-sqlite3, attempting one rebuild on ABI/dlopen mismatch.
+ * Load better-sqlite3. A runtime rebuild requires explicit allowRebuild.
  */
 export function loadBetterSqlite3(options: SqliteNativeLoadOptions = {}): BetterSqlite3DatabaseCtor {
   const requireImpl = options.requireImpl
@@ -193,7 +186,7 @@ export function loadBetterSqlite3(options: SqliteNativeLoadOptions = {}): Better
     return loadOnce();
   } catch (firstError) {
     const packageRoot = resolveBetterSqlite3PackageRoot(requireImpl);
-    const canRebuild = options.allowRebuild ?? isNativeModuleAbiMismatch(firstError);
+    const canRebuild = options.allowRebuild ?? false;
     if (!canRebuild || !packageRoot) {
       if (isNativeModuleAbiMismatch(firstError)) {
         throw new BetterSqlite3LoadError(

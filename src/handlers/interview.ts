@@ -31,7 +31,7 @@ export function registerInterviewCommand(
 
       // Send the interview prompt as a user message to trigger the agent turn
       await ctx.waitForIdle();
-      pi.sendUserMessage(INTERVIEW_PROMPT);
+      pi.sendUserMessage(INTERVIEW_PROMPT, { deliverAs: "followUp" });
     },
   });
 }
